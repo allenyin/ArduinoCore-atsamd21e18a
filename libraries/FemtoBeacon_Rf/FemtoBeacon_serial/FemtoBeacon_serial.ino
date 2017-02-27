@@ -44,6 +44,7 @@
 //#define DEBUG
 #include "DebugUtils.h"
 #include "CommunicationUtils.h"
+//#include "calibration_coin1.h"  // remember to use the correct one, comment out when calibrating.
 #include "FreeIMU.h"
 #include "DCM.h"
 #include "FilteringScheme.h"
@@ -60,7 +61,7 @@
 
 #define M_PI 3.14159
 #define HAS_GPS 0
-#define BaudRate 115200
+#define BaudRate 9600 
 static const unsigned long GPSBaud = 57600;
 //#define gpsSerial Serial1
 
