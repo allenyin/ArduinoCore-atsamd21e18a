@@ -81,7 +81,7 @@ void setup() {
 }
 
 void setupSerialComms() {
-    //while(!Serial);
+    while(!Serial);
     
     Serial.begin(115200);
     Serial.print("LWP Ping Demo. Serial comms started. ADDRESS is ");
@@ -183,6 +183,7 @@ static bool receiveMessage(NWK_DataInd_t *ind) {
      */
 
 #ifdef DEBUG_DATA
+    /*
     Serial.print(APP_PANID);    Serial.print(",");
     Serial.print(APP_CHANNEL);  Serial.print(",");
     Serial.print(APP_ADDRESS);  Serial.print(",");
@@ -191,6 +192,8 @@ static bool receiveMessage(NWK_DataInd_t *ind) {
     Serial.print(yaw_value);    Serial.print(",");
     Serial.print(pitch_value);  Serial.print(",");
     Serial.print(roll_value);   Serial.print(",");
+    */
+    Serial.println(str);
 #endif
 
 #ifdef SERIAL_PLOTTER

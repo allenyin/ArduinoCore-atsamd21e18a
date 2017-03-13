@@ -3,7 +3,6 @@
  * 
  * This sketch assumes the following FreeIMU.h values:
  * 
- *   - MARG should be 4 (DCM)
  *   - MAG_DEC needs to be set to your location's magnetic declination (degrees)
  *   - Calibrate your IMU using the FreeIMU GUI tool (should generate a calibration.h file, include alongside this sketch)
  */
@@ -56,10 +55,10 @@
   #define HAS_EEPPROM 1
 #endif
 
-int raw_values[11];
+int raw_values[11];     // hold raw values, from FreeIMU::getRawValues()
+float cal_values[11];    // hold calibrated values, from FreeIMU:getValues()
 char str[512];
-float val[9];
-
+float eulers[3];
 
 // Set the default object
 FreeIMU my3IMU = FreeIMU();
@@ -85,22 +84,54 @@ void setup() {
 
   Serial.println("Begin IMU...");
   
-  delay(500);
-  my3IMU.init(false); // the parameter enable or disable fast mode
-  delay(500);
+  delay(100);
+  Serial.println("Here...");
+  my3IMU.init();
+  Serial.println("Here again...");
+  delay(100);
   Serial.println("Ok!");
 }
 
+
 void loop() {
-  my3IMU.getRawValues(raw_values);
-  // without baro
-  sprintf(str, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t", raw_values[0], raw_values[1], raw_values[2], raw_values[3], raw_values[4], raw_values[5], raw_values[6], raw_values[7], raw_values[8]);
-  Serial.print(str);
-  #if HAS_PRESS()
-     Serial.print(my3IMU.getBaroTemperature()); Serial.print(",");
-     Serial.print(my3IMU.getBaroPressure()); Serial.print(",");
-  #endif 
-  
-  Serial.print('\n');
-  
+    //my3IMU.getRawValues(raw_values);
+    //my3IMU.getEuler(eulers);
+    my3IMU.getYawPitchRoll180(eulers);
+    //my3IMU.getValues(cal_values);
+
+    //float heading = (atan2(cal_values[6], cal_values[7]) * 180.f) / M_PI;
+    //Serial.println(heading);
+
+    // without baro
+    //sprintf(str, "%d\t%d\t%d\t%d\t%d\t%d", raw_values[6], raw_values[7], raw_values[8], cal_values[6], cal_values[7], cal_values[8]);
+    //Serial.println(str);
+   
+   /* 
+    Serial.print(cal_values[0]);
+    Serial.print("\t");
+    Serial.print(cal_values[1]);
+    Serial.print("\t");
+    Serial.print(cal_values[2]);
+    Serial.print("\t");
+    Serial.print(cal_values[3]);
+    Serial.print("\t");
+    Serial.print(cal_values[4]);
+    Serial.print("\t");
+    Serial.print(cal_values[5]);
+    Serial.print("\t");
+   */ 
+
+    /*
+    Serial.print(raw_values[6]);
+    Serial.print("\t");
+    Serial.print(raw_values[7]);
+    Serial.print("\t");
+    Serial.println(raw_values[8]);
+    */
+
+    Serial.print(eulers[0]);
+    Serial.print("\t");
+    Serial.print(eulers[1]);
+    Serial.print("\t");
+    Serial.println(eulers[2]); 
 }

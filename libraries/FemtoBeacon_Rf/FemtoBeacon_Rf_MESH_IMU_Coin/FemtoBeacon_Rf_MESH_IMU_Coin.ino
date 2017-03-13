@@ -31,12 +31,14 @@ This sketch assumes the following FreeIMU.h values:
 //#include <avr/dtostrf.h>  Does not work..
 #include <SPI.h>
 
-#include <RTCZero.h>
+//#include <RTCZero.h>
 
 #define Serial SERIAL_PORT_USBVIRTUAL
 
 //#define DEBUG
 //#define OUTPUT_SERIAL
+#define READ_YPR
+//#define READ_RAW_MAG
 
 
 /** BEGIN Atmel's LightWeight Mesh stack. **/
@@ -126,6 +128,7 @@ float eulers[3]; // Hold euler angles (360 deg).
 float baro; // Hold Barometer Altitude data
 float temp; // Hold Temperature data
 float pressure; // Hold Pressure data
+int raw_values[11]; // sensor raw value readings
 
 // Set the FreeIMU object
 FreeIMU sensors = FreeIMU();
@@ -139,34 +142,16 @@ byte PIN_INT = 3;
 /** END Sensor vars **/
 
 
-volatile bool is_sensor_on = 1;
-volatile bool is_timestamp_on = 1;
-volatile bool is_wireless_ok = 1;
-
-/* Create an RTC object */
-RTCZero rtc;
-volatile unsigned long milliseconds = 0;
-volatile unsigned long last_ms = 0;
-volatile unsigned long current_ms = 0;
-
-byte seconds = 0;
-byte minutes = 0;
-byte hours = 0;
-
-byte day = 1; // Day 1
-byte month = 1; // January
-byte year = 17; // 2017
-
-
 char delimeter = ',';
 char filler = (char) 0;
 
-unsigned long start, finish, elapsed;
+// Timestamp tracking
+volatile unsigned long current_ms;
+
+volatile bool is_wireless_ok = 1;
+
 
 void setup() {
-
-    current_ms = millis();
-    last_ms = current_ms;
 
     pinMode(PIN_INT, INPUT);
     pinMode(PIN_FSYNC, OUTPUT);
@@ -185,9 +170,6 @@ void setup() {
     Serial.println("OK.");
     Serial.print("Starting Sensors...");
 #endif
-
-    // RTC initialization
-    rtc.begin();
 
     // Sensor initialization
     setupSensors();
@@ -214,7 +196,7 @@ void setupSerialComms() {
 
 
     Serial.begin(115200);
-    Serial.print("LWP Ping Demo. Serial comms started. ADDRESS is ");
+    Serial.print("Rf_MESH_IMU_Coin: Serial comms started. ADDRESS is ");
     Serial.println(APP_ADDRESS);
 }
 
@@ -274,15 +256,7 @@ void setupSensors() {
 
 
 void loop() {
-
-#ifdef OUTPUT_SERIAL
-    //  Serial.print("*");
-#endif
-    //digitalWrite(PIN_FSYNC, HIGH);
-    //digitalWrite(PIN_FSYNC, LOW);
-
     handleNetworking();
-
 }
 
 void handleNetworking()
@@ -293,9 +267,7 @@ void handleNetworking()
 
         // We are reading the sensors only when we can send data.
         // @TODO implement FIFO Stack of sensor data to transmit.
-        if (is_sensor_on == true) {
-            handleSensors();
-        }
+        handleSensors();
         sendMessage();
     }
 }
@@ -304,20 +276,16 @@ void handleSensors()
 {
     byte bufferIndex = 0;
 
-    #ifdef DEBUG
     #ifdef OUTPUT_SERIAL
         Serial.println("handleSensors()");
     #endif
-    #endif
+    
     current_ms = millis();
-
-    sensors.getYawPitchRoll180(ypr);
-    sensors.getEuler360deg(eulers);
-
-    baro = sensors.getBaroAlt();
-    temp = sensors.getBaroTemperature();
-    pressure = sensors.getBaroPressure();
-
+    //sensors.getYawPitchRoll180(ypr);
+    sensors.getYawPitchRoll180_stable(ypr);
+    //sensors.getEuler360deg(eulers);
+    //sensors.getEuler(eulers);
+    //sensors.getRawValues(raw_values);
 
     /// Use dtostrf?
     // Copy ypr to buffer.
@@ -326,58 +294,64 @@ void handleSensors()
     // ...We need a wide enough size (8 should be enough to cover negative symbol and decimal).
     // ...Precision is 2 decimal places.
 
-    // Timestamp YYYY-MM-DDTHH:II:SS.sss
-    /*char tstamp[23];
-      sprintf(tstamp,
-      "%04d-%02d-%02dT%02d:%02d:%02d.%03d",
-      rtc.getYear(), rtc.getMonth(), rtc.getDay(),
-      rtc.getHours(), rtc.getMinutes(), rtc.getSeconds(),
-      ((int) milliseconds * .001));
-    //String timestamp = sprintf("%04d", rtc.getYear()); // + "-" + sprintf("%02d", rtc.getMonth()) + "-" + sprintf("%02d", rtc.getDay()) + "T" + sprintf("%02d", rtc.getHours())( + ":" sprintf("%02d", rtc.getMinutes()) + ":" + sprintf("%02d", rtc.getSeconds()) + "." + sprintf("%03d", (int)milliseconds * .001);
-    */
-   
-    #ifdef DEBUG
-    #ifdef OUTPUT_SERIAL
-        Serial.print("Time=");
-        Serial.print(current_ms);
-        Serial.print(",");
-        Serial.print("(");
-        Serial.print(ypr[0]);
-        Serial.print(",");
-        Serial.print(ypr[1]);
-        Serial.print(",");
-        Serial.print(ypr[2]); 
-        Serial.println(")");
-    #endif
+    #if defined(OUTPUT_SERIAL)
+        //Serial.print("Time=");
+        //Serial.print(current_ms);
+        //Serial.print("\t");
+        Serial.print(eulers[0]);
+        Serial.print("\t");
+        Serial.print(eulers[1]);
+        Serial.print("\t");
+        Serial.println(eulers[2]); 
     #endif
 
     // First 10 char is current_ms
     dtostrf(current_ms, 16, 0, &bufferData[bufferIndex]);
     bufferIndex += 16;
     bufferData[bufferIndex] = delimeter;
+    
+    #ifdef READ_YPR
+        // Sensor data:
+        // ...Yaw 
+        ++bufferIndex;
+        dtostrf(ypr[0], 16, 6, &bufferData[bufferIndex]);
+        bufferIndex += 16;
+        bufferData[bufferIndex] = delimeter;
 
-    // Sensor data:
-    // ...Yaw
-    ++bufferIndex;
-    dtostrf(ypr[0], 16, 6, &bufferData[bufferIndex]);
-    bufferIndex += 16;
-    bufferData[bufferIndex] = delimeter;
+        // ...Pitch
+        ++bufferIndex;
+        dtostrf(ypr[1], 16, 6, &bufferData[bufferIndex]);
+        bufferIndex += 16;
+        bufferData[bufferIndex] = delimeter;
 
-    // ...Pitch
-    ++bufferIndex;
-    dtostrf(ypr[1], 16, 6, &bufferData[bufferIndex]);
-    bufferIndex += 16;
-    bufferData[bufferIndex] = delimeter;
+        // ...Roll
+        ++bufferIndex;
+        dtostrf(ypr[2], 16, 6, &bufferData[bufferIndex]);
+        bufferIndex += 16;
+        bufferData[bufferIndex] = delimeter;
+    #endif
 
-    // ...Roll
-    ++bufferIndex;
-    dtostrf(ypr[2], 16, 6, &bufferData[bufferIndex]);
-    bufferIndex += 16;
-    bufferData[bufferIndex] = delimeter;
+    #ifdef READ_RAW_MAG
+        // mag
+        ++bufferIndex;
+        sprintf(&bufferData[bufferIndex], "%016d", raw_values[6]);
+        bufferIndex += 16;
+        bufferData[bufferIndex] = delimeter; 
 
-    #ifdef OUTPUT_SERIAL
-        Serial.print("TX data: ");
-        Serial.println(bufferData);
+        ++bufferIndex;
+        sprintf(&bufferData[bufferIndex], "%016d", raw_values[7]);
+        bufferIndex += 16;
+        bufferData[bufferIndex] = delimeter; 
+
+        ++bufferIndex;
+        sprintf(&bufferData[bufferIndex], "%016d", raw_values[8]);
+        bufferIndex += 16;
+        bufferData[bufferIndex] = delimeter; 
+    #endif
+    
+    #if defined(OUTPUT_SERIAL) && defined(DEBUG)
+        //Serial.print("TX data: ");
+        //Serial.println(bufferData);
     #endif
 }
 
@@ -390,18 +364,14 @@ void resetBuffer() {
 static void sendMessage(void) {
 
     if (send_message_busy) {
-    #ifdef DEBUG
-    #ifdef OUTPUT_SERIAL
+    #if defined(OUTPUT_SERIAL) && defined(DEBUG)
         Serial.println("...sendMessage() busy");
-    #endif
     #endif
         return;
     }
 
-    #ifdef DEBUG
-    #ifdef OUTPUT_SERIAL
+    #if defined(OUTPUT_SERIAL) && defined(DEBUG)
         Serial.println("sendMessage()");
-    #endif
     #endif
 
     sendRequest.dstAddr       = DEST_ADDRESS;
@@ -419,10 +389,8 @@ static void sendMessage(void) {
 
 static void sendMessageConfirm(NWK_DataReq_t *req)
 {
-    #ifdef DEBUG
-    #ifdef OUTPUT_SERIAL
-    Serial.println("sendMessageConfirm() req->status is ");
-    #endif
+    #if defined(OUTPUT_SERIAL) && defined(DEBUG)
+        Serial.println("sendMessageConfirm() req->status is ");
     #endif
 
     send_message_busy = false;
@@ -486,7 +454,6 @@ static void sendMessageConfirm(NWK_DataReq_t *req)
 }
 
 static bool receiveMessage(NWK_DataInd_t *ind) {
-    //char sensorData[5];
 #ifdef OUTPUT_SERIAL
     Serial.print("receiveMessage() ");
     Serial.print("lqi: ");
@@ -500,74 +467,6 @@ static bool receiveMessage(NWK_DataInd_t *ind) {
 
     Serial.print("data: ");
 #endif;
-
-    String str((char*)ind->data);
-
-    if (str.length() > 0)
-    {
-        if (str.equals("RESET")) {
-            // Reset
-            sensors.RESET();
-            sensors.RESET_Q();
-            sensors.init(true);
-
-        } else if (str.equals("SON")) {
-            is_sensor_on = true;
-        } else if (str.equals("SOFF")) {
-            is_sensor_on = false;
-        } else if (str.equals("TON")) {
-            is_timestamp_on = true;
-        } else if (str.equals("TOFF")) {
-            is_timestamp_on = false;
-        } else if (str.equals("TSET")) {
-            // @TODO parse incomming timestamp string
-            // and set day, month, year, hours, minutes, seconds, milliseconds.
-            int spaceIndex = str.indexOf("T");
-            String dmy = str.substring(0, spaceIndex);
-            String hms = str.substring(spaceIndex + 1);
-
-            int hyphenIndex = dmy.indexOf("-");
-            int secondHyphenIndex = dmy.indexOf("-", hyphenIndex + 1);
-
-            year = (byte)dmy.substring(0, hyphenIndex).toInt();
-            month = (byte)dmy.substring(hyphenIndex, secondHyphenIndex).toInt();
-            day = (byte)dmy.substring(secondHyphenIndex + 1).toInt();
-
-            int colonIndex = hms.indexOf(":");
-            int secondColonIndex = hms.indexOf(":", colonIndex + 1);
-
-            hours = (byte)hms.substring(0, colonIndex).toInt();
-            minutes = (byte)hms.substring(colonIndex, secondColonIndex).toInt();
-
-            String secondFractional = hms.substring(secondColonIndex + 1);
-
-            int dotIndex = secondFractional.indexOf(".");
-
-            if (dotIndex > 0) {
-                seconds = (byte)secondFractional.substring(0, dotIndex).toInt();
-
-                // Add the board's millis() return value to this.
-                milliseconds = secondFractional.substring(dotIndex + 1).toInt();
-            } else {
-                seconds = (byte)secondFractional.toInt();
-            }
-
-            rtc.setHours(hours);
-            rtc.setMinutes(minutes);
-            rtc.setSeconds(seconds);
-
-            rtc.setDay(day);
-            rtc.setMonth(month);
-            rtc.setYear(year);
-
-        } else {
-            // Ignore...
-        }
-    }
-
-#ifdef OUTPUT_SERIAL
-    Serial.println(str);
-#endif
 
     return true;
 }

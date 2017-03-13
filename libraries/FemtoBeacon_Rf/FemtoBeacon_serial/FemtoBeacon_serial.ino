@@ -44,7 +44,7 @@
 //#define DEBUG
 #include "DebugUtils.h"
 #include "CommunicationUtils.h"
-//#include "calibration_coin1.h"  // remember to use the correct one, comment out when calibrating.
+#include "calibration_coin1.h"  // remember to use the correct one.
 #include "FreeIMU.h"
 #include "DCM.h"
 #include "FilteringScheme.h"
