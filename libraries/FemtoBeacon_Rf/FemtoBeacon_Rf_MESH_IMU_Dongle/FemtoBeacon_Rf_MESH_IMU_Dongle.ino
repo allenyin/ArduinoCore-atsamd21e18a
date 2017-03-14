@@ -14,8 +14,8 @@
 
 #define Serial SERIAL_PORT_USBVIRTUAL
 //#define DEBUG
-//#define DEBUG_DATA
-#define SERIAL_PLOTTER
+#define DEPLOY
+//#define SERIAL_PLOTTER
 
 /** BEGIN Atmel's LightWeight Mesh stack. **/
     #include "lwm.h"
@@ -182,8 +182,7 @@ static bool receiveMessage(NWK_DataInd_t *ind) {
      * NETWORK_ID,CHANNEL_#,RECEIVER_ID,SENDER_ID,TIMESTAMP,YAW,PITCH,ROW
      */
 
-#ifdef DEBUG_DATA
-    /*
+#ifdef DEPLOY 
     Serial.print(APP_PANID);    Serial.print(",");
     Serial.print(APP_CHANNEL);  Serial.print(",");
     Serial.print(APP_ADDRESS);  Serial.print(",");
@@ -191,9 +190,8 @@ static bool receiveMessage(NWK_DataInd_t *ind) {
     Serial.print(timestamp);    Serial.print(",");
     Serial.print(yaw_value);    Serial.print(",");
     Serial.print(pitch_value);  Serial.print(",");
-    Serial.print(roll_value);   Serial.print(",");
-    */
-    Serial.println(str);
+    Serial.println(roll_value);   
+    //Serial.println(str);
 #endif
 
 #ifdef SERIAL_PLOTTER
